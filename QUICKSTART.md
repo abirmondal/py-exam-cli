@@ -4,7 +4,29 @@ Get your exam system up and running in 15 minutes!
 
 ## For Instructors (Initial Setup)
 
-### 1. Deploy to Vercel (5 minutes)
+### Method 1: GitHub Integration (Recommended - 10 minutes)
+
+1. **Fork this repository** to your GitHub account
+
+2. **Go to Vercel Dashboard** and click **Add New... > Project**
+
+3. **Import your GitHub repository**
+
+4. **Add Environment Variable**:
+   - Before deploying, expand "Environment Variables"
+   - Add `GRADING_SECRET` = `your-strong-secret-key`
+   - Click **Deploy**
+
+5. **Set up Blob Storage**:
+   - Go to **Storage** tab → **Create Database** → **Blob**
+   - Vercel auto-configures the required environment variables
+
+6. **Update URLs in setup.sh** (commit to GitHub):
+   - Update `VERCEL_BLOB_BASE_URL` with your Blob Storage URL
+   - Update `API_URL` with your Vercel deployment URL
+   - Vercel will auto-redeploy when you push
+
+### Method 2: Vercel CLI (Advanced - 10 minutes)
 
 ```bash
 # Install Vercel CLI
@@ -21,43 +43,12 @@ vercel login
 vercel --prod
 ```
 
-### 2. Configure Secrets (2 minutes)
+Then configure as above:
+1. Add `GRADING_SECRET` environment variable in Vercel Dashboard
+2. Create Blob Storage in Storage tab
+3. Update URLs in setup.sh
 
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Select your project
-3. Go to **Settings** → **Environment Variables**
-4. Add: `GRADING_SECRET` = `your-strong-secret-key`
-5. Save
-
-### 3. Enable Blob Storage (2 minutes)
-
-1. In your project dashboard, go to **Storage**
-2. Click **Create Database**
-3. Select **Blob**
-4. Create it (it will auto-configure)
-
-### 4. Update URLs (5 minutes)
-
-Edit `setup.sh`:
-
-```bash
-# Update the Vercel Blob URL (around line 48)
-VERCEL_BLOB_BASE_URL="https://your-vercel-blob-url.blob.vercel-storage.com"
-
-# Update the API URL (around line 162 in the submit.sh section)
-API_URL="https://your-project.vercel.app/api/submit"
-```
-
-You can find your Vercel Blob URL in your project's Storage settings.
-
-Commit and push:
-```bash
-git add setup.sh
-git commit -m "Update URLs"
-git push origin main
-```
-
-### 5. Test It! (1 minute)
+### Test It! (1 minute)
 
 ```bash
 # Test the API
@@ -90,25 +81,31 @@ Enter:
 - Your Full Name (e.g., `John Smith`)
 - Exam Code (e.g., `cst101`)
 
-### 3. Complete the Exam
+### 3. Start the Exam
 
 ```bash
 cd ~/exam_STU12345
-ls  # See all files
+./start_exam.sh
+```
 
+This starts the timer and makes solution files editable.
+
+### 4. Complete the Exam
+
+```bash
 # Work on your solutions
 nano problem1_solution.py
 nano problem2_solution.py
 nano answers.txt
 ```
 
-### 4. Submit
+### 5. Submit
 
 ```bash
 ./submit.sh
 ```
 
-Confirm your Enrollment ID and wait for confirmation.
+This locks files and submits. Confirm your Enrollment ID and wait for confirmation.
 
 **Done!** Your exam is submitted! ✓
 

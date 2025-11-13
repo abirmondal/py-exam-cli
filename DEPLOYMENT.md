@@ -21,19 +21,105 @@ This system now includes enhanced features:
 
 ## Step-by-Step Deployment
 
-### 1. Fork or Clone the Repository
+### Method 1: GitHub Integration (Recommended)
+
+This is the easiest and most maintainable approach.
+
+#### 1. Fork or Push to GitHub
 
 ```bash
-# Clone the repository
+# Fork this repository on GitHub, or push to your own repo
 git clone https://github.com/abirmondal/py-exam-cli.git
 cd py-exam-cli
 
-# Or fork it on GitHub and clone your fork
+# If creating your own repo:
+git remote set-url origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git push -u origin main
 ```
 
-### 2. Customize for Your Institution
+#### 2. Import to Vercel
 
-#### Update setup.sh
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click **Add New... > Project**
+3. Click **Import** next to your GitHub repository
+4. Vercel will detect the configuration automatically
+
+#### 3. Configure Environment Variables
+
+Before clicking Deploy:
+
+1. Expand the **Environment Variables** section
+2. Add a new variable:
+   - **Name**: `GRADING_SECRET`
+   - **Value**: Choose a strong, random secret (e.g., a UUID)
+   - **Environment**: Select all (Production, Preview, Development)
+3. Click **Deploy**
+
+#### 4. Set Up Blob Storage
+
+After deployment completes:
+
+1. In your Vercel project dashboard, go to **Storage** tab
+2. Click **Create Database**
+3. Select **Blob**
+4. Choose a name (e.g., "exam-storage")
+5. Click **Create**
+
+Vercel will automatically configure the `BLOB_READ_WRITE_TOKEN` environment variable.
+
+#### 5. Get Your Blob Storage URL
+
+In the Storage section, you'll see your Blob Storage URL:
+```
+https://[your-project-id].blob.vercel-storage.com
+```
+
+#### 6. Update setup.sh
+
+Update the URLs in `setup.sh`:
+
+```bash
+# Around line 63:
+VERCEL_BLOB_BASE_URL="https://your-actual-blob-url.blob.vercel-storage.com"
+
+# Around line 241 (in submit.sh):
+API_URL="https://your-project.vercel.app/api/submit"
+```
+
+Commit and push to GitHub:
+```bash
+git add setup.sh
+git commit -m "Update deployment URLs"
+git push origin main
+```
+
+Vercel will automatically detect the push and redeploy!
+
+#### 7. Future Updates
+
+Just commit and push to your main branch:
+```bash
+git add .
+git commit -m "Your changes"
+git push origin main
+```
+
+Vercel automatically redeploys on every push.
+
+---
+
+### Method 2: Vercel CLI (Advanced)
+
+For users who prefer command-line deployment.
+
+#### 1. Fork or Clone the Repository
+
+```bash
+git clone https://github.com/abirmondal/py-exam-cli.git
+cd py-exam-cli
+```
+
+#### 2. Customize URLs
 
 Open `setup.sh` and update the Vercel Blob URL (around line 63):
 
@@ -47,13 +133,13 @@ VERCEL_BLOB_BASE_URL="https://your-actual-blob-url.blob.vercel-storage.com"
 
 You can find your Vercel Blob Storage URL in your Vercel project's Storage settings.
 
-### 3. Install Vercel CLI
+#### 3. Install Vercel CLI
 
 ```bash
 npm install -g vercel
 ```
 
-### 4. Login to Vercel
+#### 4. Login to Vercel
 
 ```bash
 vercel login
@@ -61,7 +147,7 @@ vercel login
 
 Follow the prompts to authenticate with your Vercel account.
 
-### 5. Deploy the Project
+#### 5. Deploy the Project
 
 ```bash
 # Deploy to production
@@ -245,11 +331,23 @@ https://your-blob-url.blob.vercel-storage.com/public-exams/myexam101.zip
    4. Enter your Enrollment ID when prompted
    5. Enter your Full Name when prompted
    6. Enter the Exam Code (e.g., cst101)
-   7. Complete the exam in the created directory
-   8. Run: ./submit.sh
+   7. Navigate to the exam directory:
+      cd ~/exam_YOUR_ENROLLMENT_ID
+   
+   8. Start the exam (starts timer and unlocks solution files):
+      ./start_exam.sh
+   
+   9. Complete the exam (edit solution files)
+   
+   10. Submit (locks files and submits):
+       ./submit.sh
    ```
 
-**Note**: The system now collects both Enrollment ID and Full Name, which are stored in `student_info.txt` and included in the submission for better student identification.
+**Important Notes**:
+- Files are read-only until `start_exam.sh` is run
+- Time is tracked from start to submission
+- Both Enrollment ID and Full Name are collected
+- `student_info.txt` includes timing data for auditing
 
 ## Monitoring and Maintenance
 
@@ -287,6 +385,9 @@ This will:
   - `score`: Calculated score
   - `status`: Grading status or error message
   - `filename`: Original submission filename
+  - `start_time_utc`: When student started the exam
+  - `submit_time_utc`: When student submitted
+  - `total_time_seconds`: Total time taken in seconds
 - Return the URL to download the CSV from Blob Storage
 
 ## Troubleshooting
@@ -435,8 +536,10 @@ If you need to access the API from a web interface, add CORS middleware in `api/
 3. Enter Exam Code
 4. System downloads exam from Vercel Blob Storage
 5. System creates `student_info.txt` with ID and name
-6. Complete exam in isolated directory
-7. Run `submit.sh` to upload (includes student_info.txt)
+6. All files set to read-only for integrity
+7. Run `start_exam.sh` to begin (starts timer, unlocks solution files)
+8. Complete exam in isolated directory
+9. Run `submit.sh` to upload (locks files, records end time, includes all timing data)
 
 ### For Instructors:
 1. Create exam zip files
@@ -444,9 +547,9 @@ If you need to access the API from a web interface, add CORS middleware in `api/
 3. Students take exam and submit
 4. Call `/api/start-grading` endpoint
 5. System downloads all submissions from Blob
-6. System reads student info and grades answers
-7. System generates CSV with enrollment_id, student_name, score, status
-8. Download results from returned URL
+6. System reads student info (including timing data) and grades answers
+7. System generates CSV with enrollment_id, student_name, score, status, timing info
+8. Download results from returned URL with complete audit trail
 
 ## Conclusion
 
@@ -456,7 +559,8 @@ For production use, make sure to:
 - ✓ Set strong secret keys
 - ✓ Update Vercel Blob URL in setup.sh
 - ✓ Upload exam files to Vercel Blob Storage (not GitHub)
-- ✓ Test the complete workflow with both enrollment ID and name collection
+- ✓ Test the complete workflow: setup → start_exam → submit
+- ✓ Verify timing data is captured correctly
 - ✓ Monitor during exam periods
 - ✓ Keep backups of all data
-- ✓ Review logs regularly
+- ✓ Review logs and timing anomalies regularly

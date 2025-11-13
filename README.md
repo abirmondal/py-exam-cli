@@ -47,27 +47,60 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    - Enter your Full Name (e.g., `John Smith`)
    - Enter the Exam Code (e.g., `cst101`)
 
-4. **Complete your exam**:
-   - Work on the problems in the created directory
+4. **Start the exam**:
+   ```bash
+   cd ~/exam_STU12345
+   ./start_exam.sh
+   ```
+   This will start the timer and make solution files editable.
+
+5. **Complete your exam**:
+   - Work on the problems in the directory
    - Edit solution files: `problem1_solution.py`, `problem2_solution.py`, etc.
    - Fill in `answers.txt` for multiple choice questions
 
-5. **Submit your work**:
+6. **Submit your work**:
    ```bash
    ./submit.sh
    ```
+   This will lock files and submit your work.
 
 ### Important Notes for Students
 
 - Work in the created `~/exam_<ENROLLMENT_ID>` directory
-- DO NOT modify question files
-- Only solution files will be submitted
+- Files are read-only until you run `./start_exam.sh`
+- Question files remain read-only (DO NOT attempt to modify)
+- Only solution files become editable after starting
+- Your time is tracked from start_exam.sh to submit.sh
 - Ensure internet connection before submitting
-- Keep your Enrollment ID handy
 
 ## 👨‍🏫 For Instructors
 
 ### Deployment to Vercel
+
+#### Method 1: GitHub Integration (Recommended)
+
+1. **Fork or push this repository to your GitHub account**
+
+2. **Login to Vercel** and click **Add New... > Project**
+
+3. **Import the GitHub repository** you just created
+
+4. **Configure environment variables** before deploying:
+   - Expand the "Environment Variables" section
+   - Add `GRADING_SECRET` with a strong secret value
+   - Click **Deploy**
+
+5. **Set up Blob Storage**:
+   - After deployment, go to the **Storage** tab
+   - Create and link your Vercel Blob store
+   - Vercel will automatically add the required blob environment variables
+
+6. **Automatic deployments**:
+   - Just `git commit` and `git push` to your main branch
+   - Vercel will automatically redeploy
+
+#### Method 2: Vercel CLI (Advanced)
 
 1. **Fork or clone this repository**
 
