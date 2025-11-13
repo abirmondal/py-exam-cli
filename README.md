@@ -1,22 +1,23 @@
 # Terminal-Based Python Exam System
 
-A complete Python & Shell-based CLI system for conducting exams. Manages setup, submission, and grading via a FastAPI backend deployed on Vercel with Blob Storage.
+A complete Python & Shell-based CLI system for conducting exams. Manages setup and submission via a FastAPI backend deployed on Vercel with Blob Storage. **Submission-only system** - TAs download submissions for manual/local grading.
 
 ## 🚀 Features
 
 - **Student Setup Script**: Download and setup exam environment with a single command
-- **Automatic Submission**: Package and submit solutions via CLI
-- **Serverless Backend**: FastAPI on Vercel for scalable exam management
+- **Automatic Submission**: Package and submit `prob_*` solution files via CLI
+- **Single Endpoint Backend**: FastAPI on Vercel for simple, scalable submission management
 - **Blob Storage**: Secure submission storage using Vercel Blob
-- **Automated Grading**: Process multiple submissions with error resilience
-- **Security**: Secret-key protected grading endpoint
+- **Submission Overwrite**: Only the last submission from a student is kept (based on filename), simplifying exam management
+- **File Permissions**: Exam files are read-only until exam starts; only `prob_*` solution files become editable
+- **Time Tracking**: Complete audit trail with start time, submit time, and duration
 
 ## 📁 Repository Structure
 
 ```
 /
 ├── api/
-│   └── index.py              # FastAPI backend with /api/submit and /api/start-grading
+│   └── index.py              # FastAPI backend with /api/submit ONLY
 ├── public/
 │   └── exam_files/
 │       ├── cst101.zip        # Example exam (Computer Science)
@@ -52,26 +53,26 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    cd ~/exam_STU12345
    ./start_exam.sh
    ```
-   This will start the timer and make solution files editable.
+   This will start the timer and make `prob_*` solution files editable.
 
 5. **Complete your exam**:
    - Work on the problems in the directory
-   - Edit solution files: `problem1_solution.py`, `problem2_solution.py`, etc.
-   - Fill in `answers.txt` for multiple choice questions
+   - Edit solution files matching the `prob_*` pattern (e.g., `prob_1.py`, `prob_2.txt`, etc.)
 
 6. **Submit your work**:
    ```bash
    ./submit.sh
    ```
-   This will lock files and submit your work.
+   This will lock files and submit your work as `{EXAM_CODE}_{ENROLLMENT_ID}.zip`.
 
 ### Important Notes for Students
 
 - Work in the created `~/exam_<ENROLLMENT_ID>` directory
 - Files are read-only until you run `./start_exam.sh`
-- Question files remain read-only (DO NOT attempt to modify)
-- Only solution files become editable after starting
+- Only `prob_*` files become editable after starting the exam
 - Your time is tracked from start_exam.sh to submit.sh
+- Submission filename format: `{EXAM_CODE}_{ENROLLMENT_ID}.zip`
+- Only your last submission is kept (previous submissions are overwritten)
 - Ensure internet connection before submitting
 
 ## 👨‍🏫 For Instructors
@@ -86,10 +87,7 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
 
 3. **Import the GitHub repository** you just created
 
-4. **Configure environment variables** before deploying:
-   - Expand the "Environment Variables" section
-   - Add `GRADING_SECRET` with a strong secret value
-   - Click **Deploy**
+4. **Click Deploy** (no environment variables needed for submission-only system)
 
 5. **Set up Blob Storage**:
    - After deployment, go to the **Storage** tab
@@ -119,11 +117,7 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    vercel --prod
    ```
 
-5. **Set up environment variables** in Vercel Dashboard:
-   - Go to your project settings
-   - Add environment variable: `GRADING_SECRET` (choose a strong secret key)
-
-6. **Update the setup.sh script**:
+5. **Update the setup.sh script**:
    - Update `VERCEL_BLOB_BASE_URL` with your Vercel Blob Storage URL
    - Update the API URL in the script with your Vercel deployment URL
 
@@ -134,19 +128,15 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    mkdir exam_content
    cd exam_content
    
-   # Create question files
-   echo "Problem 1: ..." > problem1_question.txt
-   
-   # Create solution templates
-   echo "# Solution template" > problem1_solution.py
-   
-   # Create answers template
-   echo "Q1:\nQ2:" > answers.txt
+   # Create solution files using prob_* pattern
+   echo "# Student solution for Problem 1" > prob_1.py
+   echo "# Student solution for Problem 2" > prob_2.py
+   echo "Problem 3 answer:" > prob_3.txt
    ```
 
 2. **Zip the exam**:
    ```bash
-   zip -r cst101.zip *.txt *.py
+   zip -r cst101.zip prob_*
    ```
 
 3. **Upload to Vercel Blob Storage**:
@@ -155,23 +145,18 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    - Upload `cst101.zip` to the `public-exams/` folder
    - Or use Vercel CLI: `vercel blob upload cst101.zip --store public-exams`
 
-### Starting the Grading Process
+### Downloading Submissions
 
-Use the `/api/start-grading` endpoint with your secret key:
+This system is **submission-only**. To grade, you must download the files.
 
-```bash
-curl "https://your-vercel-deployment.vercel.app/api/start-grading?secret=YOUR_SECRET_KEY"
-```
+1. **Go to your Vercel Project Dashboard**
+2. **Navigate to the Storage tab** and select your Blob store
+3. **All submissions are in the `submissions/` folder**, named as `<examcode>_<enrollmentid>.zip`
+   - Example: `cst101_STU12345.zip`
+4. **Download the files** for manual or local automated grading
+5. **Unzip and grade** using your preferred tools/methods
 
-This will:
-- Process all submissions from Vercel Blob Storage
-- Grade each submission (comparing with answer key)
-- Generate a CSV file with results
-- Handle corrupt files gracefully
-
-### Downloading Results
-
-The grading process generates `results/marks_final.csv` in Blob Storage. The response includes the URL to download this file.
+**Note**: Only the last submission from each student is kept (previous submissions are automatically overwritten).
 
 ## 🔧 API Endpoints
 
@@ -189,7 +174,7 @@ Submit exam solutions.
 {
   "status": "success",
   "message": "Submission received successfully",
-  "filename": "STU12345_submission.zip",
+  "filename": "cst101_STU12345.zip",
   "url": "https://...",
   "size": 12345
 }
@@ -200,35 +185,14 @@ Submit exam solutions.
 - Maximum size: 10MB
 - Must be a valid zip file
 
-### GET `/api/start-grading`
-
-Start automated grading process.
-
-**Request**:
-- Method: GET
-- Query Parameter: `secret` (required)
-
-**Response**:
-```json
-{
-  "status": "Grading complete",
-  "file": "results/marks_final.csv",
-  "url": "https://...",
-  "total_submissions": 25,
-  "graded": 24,
-  "errors": 1
-}
-```
-
-**Security**: Requires valid `GRADING_SECRET` environment variable.
+**Note**: Submission filename format is `{EXAM_CODE}_{ENROLLMENT_ID}.zip`. The `addRandomSuffix: False` option ensures that the last submission from a student overwrites any previous submissions.
 
 ## 🔒 Security Features
 
-1. **Secret Key Protection**: Grading endpoint secured with environment variable
-2. **File Validation**: Content type and size checks
-3. **Error Isolation**: Individual submission errors don't crash grading
-4. **Safe Directory Operations**: No destructive `rm` commands in scripts
-5. **Input Validation**: All user inputs are validated
+1. **File Validation**: Content type and size checks
+2. **Safe Directory Operations**: No destructive `rm` commands in scripts
+3. **Input Validation**: All user inputs are validated
+4. **Read-Only Protection**: Question files remain read-only; only `prob_*` solution files are editable
 
 ## 🛠️ Development
 

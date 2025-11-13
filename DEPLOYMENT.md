@@ -9,15 +9,17 @@ This guide will help you deploy the Terminal-Based Python Exam System to Vercel.
 - Git installed locally
 - Node.js and npm installed (for Vercel CLI)
 
-## New Features in Latest Update
+## System Overview
 
-This system now includes enhanced features:
+This is a **submission-only system**:
 
-- **Student Identification**: Collects both Enrollment ID and Full Name for better tracking
+- **Student Identification**: Collects Enrollment ID, Full Name, and Exam Code
 - **Vercel Blob Hosting**: Exam files are hosted on Vercel Blob Storage (no GitHub files needed)
-- **Real Grading**: Actual implementation that downloads, parses, and grades submissions
-- **Enhanced CSV Output**: Results include enrollment_id, student_name, score, status, and filename
-- **Student Info File**: `student_info.txt` is automatically created and included in submissions
+- **Smart Submission Naming**: Files named as `{EXAM_CODE}_{ENROLLMENT_ID}.zip` (e.g., `cst101_STU12345.zip`)
+- **Automatic Overwrite**: Only the last submission from each student is kept
+- **File Pattern**: Uses `prob_*` for solution files
+- **Time Tracking**: Complete audit trail stored in `student_info.txt`
+- **Manual Grading**: TAs download submissions from Blob Storage for local grading
 
 ## Step-by-Step Deployment
 
@@ -44,16 +46,9 @@ git push -u origin main
 3. Click **Import** next to your GitHub repository
 4. Vercel will detect the configuration automatically
 
-#### 3. Configure Environment Variables
+#### 3. Deploy
 
-Before clicking Deploy:
-
-1. Expand the **Environment Variables** section
-2. Add a new variable:
-   - **Name**: `GRADING_SECRET`
-   - **Value**: Choose a strong, random secret (e.g., a UUID)
-   - **Environment**: Select all (Production, Preview, Development)
-3. Click **Deploy**
+Click **Deploy** (no environment variables needed for submission-only system)
 
 #### 4. Set Up Blob Storage
 
@@ -159,25 +154,11 @@ The CLI will guide you through:
 - Configuring project settings
 - Deploying the application
 
-### 6. Configure Environment Variables
-
-After deployment, you need to set up the `GRADING_SECRET` environment variable:
-
-1. Go to your Vercel dashboard: https://vercel.com/dashboard
-2. Select your project
-3. Go to **Settings** → **Environment Variables**
-4. Add a new environment variable:
-   - **Name**: `GRADING_SECRET`
-   - **Value**: Choose a strong, random secret (e.g., a UUID or long random string)
-   - **Environment**: Select all (Production, Preview, Development)
-5. Click **Save**
-
-### 7. Configure Vercel Blob Storage
+### 6. Configure Vercel Blob Storage
 
 The system uses Vercel Blob Storage for:
 - Hosting exam files (in `public-exams/` path)
 - Storing student submissions (in `submissions/` path)
-- Storing grading results (in `results/` path)
 
 **Setup Steps:**
 
@@ -198,7 +179,7 @@ https://[your-project-id].blob.vercel-storage.com
 
 Save this URL - you'll need it for updating `setup.sh` in the next step.
 
-### 8. Update API URL in setup.sh
+### 7. Update API URL in setup.sh
 
 After deployment, Vercel will give you a URL (e.g., `https://your-project.vercel.app`).
 
@@ -269,16 +250,16 @@ Replace `YOUR_SECRET_KEY` with the value you set in environment variables.
 mkdir exam_content
 cd exam_content
 
-# Create your exam files
-echo "Question 1..." > problem1_question.txt
-echo "# Solution template" > problem1_solution.py
-echo "Q1:\nQ2:" > answers.txt
+# Create solution files using prob_* pattern
+echo "# Student solution for Problem 1" > prob_1.py
+echo "# Student solution for Problem 2" > prob_2.py
+echo "Answer for problem 3:" > prob_3.txt
 ```
 
 ### 2. Create the Zip File
 
 ```bash
-zip -r myexam101.zip *.txt *.py
+zip -r myexam101.zip prob_*
 ```
 
 ### 3. Upload to Vercel Blob Storage
@@ -361,34 +342,20 @@ https://your-blob-url.blob.vercel-storage.com/public-exams/myexam101.zip
 
 ### Download Submissions
 
-After students submit, you can:
+This is a **submission-only system**. To grade exams:
 
-1. Use the grading endpoint to process all submissions
-2. Download the results CSV from Vercel Blob Storage
-3. Or manually access Blob Storage through the Vercel dashboard
+1. **Go to your Vercel Project Dashboard**
+2. **Navigate to Storage** → Select your Blob store
+3. **Browse the `submissions/` folder**
+4. **Download submission files** - they're named as `{examcode}_{enrollmentid}.zip`
+   - Example: `cst101_STU12345.zip`
+5. **Unzip and grade** using your preferred tools/methods
 
-### Grading Process
+**Each submission contains:**
+- `prob_*` files (student solutions)
+- `student_info.txt` (enrollment ID, name, exam code, timing data)
 
-```bash
-# Start grading with your secret
-curl "https://your-project.vercel.app/api/start-grading?secret=YOUR_SECRET"
-```
-
-This will:
-- Download all submissions from Vercel Blob Storage
-- Read student information from `student_info.txt` in each submission
-- Parse and compare answers with the answer key
-- Calculate real scores based on correct answers
-- Generate a CSV file with results including:
-  - `enrollment_id`: Student's enrollment ID
-  - `student_name`: Student's full name
-  - `score`: Calculated score
-  - `status`: Grading status or error message
-  - `filename`: Original submission filename
-  - `start_time_utc`: When student started the exam
-  - `submit_time_utc`: When student submitted
-  - `total_time_seconds`: Total time taken in seconds
-- Return the URL to download the CSV from Blob Storage
+**Note**: Only the last submission from each student is kept (previous submissions are automatically overwritten).
 
 ## Troubleshooting
 
@@ -400,12 +367,9 @@ This will:
 **Error**: "Failed to install dependencies"
 - **Solution**: Check that `requirements.txt` is valid
 - Try: `pip install -r requirements.txt` locally first
-- Ensure all dependencies are available: fastapi, uvicorn, python-multipart, vercel-blob, requests
+- Ensure all dependencies are available: fastapi, uvicorn, python-multipart, vercel-blob
 
 ### API Errors
-
-**Error**: "Grading secret not configured"
-- **Solution**: Set the `GRADING_SECRET` environment variable in Vercel
 
 **Error**: "Failed to save submission"
 - **Solution**: Ensure Vercel Blob Storage is configured
@@ -542,25 +506,23 @@ If you need to access the API from a web interface, add CORS middleware in `api/
 9. Run `submit.sh` to upload (locks files, records end time, includes all timing data)
 
 ### For Instructors:
-1. Create exam zip files
+1. Create exam zip files with `prob_*` pattern
 2. Upload to Vercel Blob Storage under `public-exams/`
-3. Students take exam and submit
-4. Call `/api/start-grading` endpoint
-5. System downloads all submissions from Blob
-6. System reads student info (including timing data) and grades answers
-7. System generates CSV with enrollment_id, student_name, score, status, timing info
-8. Download results from returned URL with complete audit trail
+3. Students take exam and submit as `{EXAM_CODE}_{ENROLLMENT_ID}.zip`
+4. Download submissions from Vercel Blob Storage `submissions/` folder
+5. Unzip and grade using preferred methods/tools
+6. Access complete timing data in each submission's `student_info.txt`
 
 ## Conclusion
 
-Your Terminal-Based Python Exam System is now deployed and ready to use! Students can download the setup script, take exams, and submit their work. You can process submissions and generate grades with a single API call.
+Your Terminal-Based Python Exam System is now deployed and ready to use! Students can download the setup script, take exams, and submit their work. You download submissions from Blob Storage for manual/local grading.
 
 For production use, make sure to:
-- ✓ Set strong secret keys
 - ✓ Update Vercel Blob URL in setup.sh
 - ✓ Upload exam files to Vercel Blob Storage (not GitHub)
 - ✓ Test the complete workflow: setup → start_exam → submit
 - ✓ Verify timing data is captured correctly
+- ✓ Use `prob_*` pattern for solution files
 - ✓ Monitor during exam periods
 - ✓ Keep backups of all data
 - ✓ Review logs and timing anomalies regularly

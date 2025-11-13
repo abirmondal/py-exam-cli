@@ -109,30 +109,26 @@ if not some_condition:
     )
 ```
 
-### Customizing the Grading Logic
+### Customizing Submission Handling
 
-The grading logic is in the `start_grading` function. To customize:
+This is a submission-only system. To customize submission handling:
 
-1. Update the `ANSWERS` dictionary
-2. Modify the scoring algorithm
-3. Change the CSV format
-4. Add additional validation
-
-Example:
-```python
-ANSWERS = {
-    "Q1": "A",
-    "Q2": "A,C",
-    # Add more questions
-}
-```
+1. Modify the `submit_exam` function in `api/index.py`
+2. Add additional file validation
+3. Change the submission naming format
+4. Add metadata extraction
 
 ### Adding File Types to Submission
 
-Edit `setup.sh` around line 95 to change what files are collected:
+Edit `setup.sh` to change what files are collected. Current pattern uses `prob_*`:
 
 ```bash
-find . -maxdepth 1 \( -name "*solution*.py" -o -name "answers.txt" -o -name "*.cpp" \) -type f
+find . -maxdepth 1 -name "prob_*" -type f
+```
+
+To add more file types:
+```bash
+find . -maxdepth 1 \( -name "prob_*" -o -name "*.cpp" \) -type f
 ```
 
 ## Common Tasks
@@ -156,17 +152,9 @@ valid_content_types = [
 ]
 ```
 
-### Change Answer Key Format
-
-Modify the parsing logic in `start_grading` to handle different formats:
-```python
-# Current format: Q1: A
-# Change to support: Question1=A or 1.A
-```
-
 ### Add Student Notifications
 
-Add email/SMS notification after submission:
+Add email/SMS notification after submission (in `api/index.py`):
 ```python
 @app.post("/api/submit")
 async def submit_exam(file: UploadFile = File(...)):

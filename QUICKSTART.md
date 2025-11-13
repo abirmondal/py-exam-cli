@@ -12,10 +12,7 @@ Get your exam system up and running in 15 minutes!
 
 3. **Import your GitHub repository**
 
-4. **Add Environment Variable**:
-   - Before deploying, expand "Environment Variables"
-   - Add `GRADING_SECRET` = `your-strong-secret-key`
-   - Click **Deploy**
+4. **Click Deploy** (no environment variables needed for submission-only system)
 
 5. **Set up Blob Storage**:
    - Go to **Storage** tab → **Create Database** → **Blob**
@@ -44,9 +41,8 @@ vercel --prod
 ```
 
 Then configure as above:
-1. Add `GRADING_SECRET` environment variable in Vercel Dashboard
-2. Create Blob Storage in Storage tab
-3. Update URLs in setup.sh
+1. Create Blob Storage in Storage tab
+2. Update URLs in setup.sh
 
 ### Test It! (1 minute)
 
@@ -88,15 +84,15 @@ cd ~/exam_STU12345
 ./start_exam.sh
 ```
 
-This starts the timer and makes solution files editable.
+This starts the timer and makes `prob_*` solution files editable.
 
 ### 4. Complete the Exam
 
 ```bash
 # Work on your solutions
-nano problem1_solution.py
-nano problem2_solution.py
-nano answers.txt
+nano prob_1.py
+nano prob_2.py
+nano prob_3.txt
 ```
 
 ### 5. Submit
@@ -105,7 +101,7 @@ nano answers.txt
 ./submit.sh
 ```
 
-This locks files and submits. Confirm your Enrollment ID and wait for confirmation.
+This locks files and submits as `{EXAM_CODE}_{ENROLLMENT_ID}.zip`. Confirm your Enrollment ID and wait for confirmation.
 
 **Done!** Your exam is submitted! ✓
 
@@ -120,28 +116,21 @@ This locks files and submits. Confirm your Enrollment ID and wait for confirmati
 mkdir my_exam
 cd my_exam
 
-# 2. Create question files
-cat > problem1_question.txt << 'EOF'
-Problem 1: Write a function to add two numbers
-EOF
-
-# 3. Create solution templates
-cat > problem1_solution.py << 'EOF'
+# 2. Create solution files using prob_* pattern
+cat > prob_1.py << 'EOF'
 def add(a, b):
     # Your code here
     pass
 EOF
 
-# 4. Create answers template
-cat > answers.txt << 'EOF'
-Q1: 
-Q2: 
+cat > prob_2.txt << 'EOF'
+Answer for problem 2:
 EOF
 
-# 5. Create the zip
-zip -r myexam101.zip *.txt *.py
+# 3. Create the zip
+zip -r myexam101.zip prob_*
 
-# 6. Upload to Vercel Blob Storage
+# 4. Upload to Vercel Blob Storage
 # Option 1: Via Vercel Dashboard
 # - Go to your project → Storage → Blob
 # - Upload myexam101.zip to public-exams/ folder
@@ -154,31 +143,22 @@ vercel blob upload myexam101.zip --store public-exams
 
 ---
 
-## For Instructors (Grading)
+## For Instructors (Downloading Submissions)
 
-### Start Grading Process
+This is a **submission-only system**. Grade manually or use local automation.
 
-```bash
-curl "https://your-project.vercel.app/api/start-grading?secret=YOUR_SECRET"
-```
+### Download Submissions
 
-Response:
-```json
-{
-  "status": "Grading complete",
-  "file": "results/marks_final.csv",
-  "url": "https://blob.vercel-storage.com/.../marks_final.csv",
-  "total_submissions": 25,
-  "graded": 24,
-  "errors": 1
-}
-```
+1. **Go to Vercel Dashboard** → Your Project
+2. **Navigate to Storage** → Blob
+3. **Browse submissions/ folder**
+4. **Download files** - they're named as `{examcode}_{enrollmentid}.zip`
+   - Example: `myexam101_STU12345.zip`
+5. **Unzip and grade** using your preferred method
 
-### Download Results
+**Note**: Only the last submission from each student is kept (previous submissions are automatically overwritten).
 
-Click the URL in the response to download the CSV file with grades.
-
-**Done!** All submissions graded! 📊
+**Done!** Grade submissions with your preferred tools! 📊
 
 ---
 
