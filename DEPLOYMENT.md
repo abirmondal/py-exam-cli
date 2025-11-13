@@ -9,6 +9,16 @@ This guide will help you deploy the Terminal-Based Python Exam System to Vercel.
 - Git installed locally
 - Node.js and npm installed (for Vercel CLI)
 
+## New Features in Latest Update
+
+This system now includes enhanced features:
+
+- **Student Identification**: Collects both Enrollment ID and Full Name for better tracking
+- **Vercel Blob Hosting**: Exam files are hosted on Vercel Blob Storage (no GitHub files needed)
+- **Real Grading**: Actual implementation that downloads, parses, and grades submissions
+- **Enhanced CSV Output**: Results include enrollment_id, student_name, score, status, and filename
+- **Student Info File**: `student_info.txt` is automatically created and included in submissions
+
 ## Step-by-Step Deployment
 
 ### 1. Fork or Clone the Repository
@@ -25,15 +35,17 @@ cd py-exam-cli
 
 #### Update setup.sh
 
-Open `setup.sh` and update line 39 with your repository information:
+Open `setup.sh` and update the Vercel Blob URL (around line 63):
 
 ```bash
 # Change this line:
-GITHUB_RAW_URL="https://raw.githubusercontent.com/abirmondal/py-exam-cli/main/public/exam_files/${EXAM_CODE}.zip"
+VERCEL_BLOB_BASE_URL="https://[YOUR-VERCEL-PROJECT-ID].blob.vercel-storage.com"
 
-# To your repository:
-GITHUB_RAW_URL="https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/public/exam_files/${EXAM_CODE}.zip"
+# To your actual Vercel Blob Storage URL:
+VERCEL_BLOB_BASE_URL="https://your-actual-blob-url.blob.vercel-storage.com"
 ```
+
+You can find your Vercel Blob Storage URL in your Vercel project's Storage settings.
 
 ### 3. Install Vercel CLI
 
@@ -76,7 +88,12 @@ After deployment, you need to set up the `GRADING_SECRET` environment variable:
 
 ### 7. Configure Vercel Blob Storage
 
-The API uses Vercel Blob Storage for storing submissions and results.
+The system uses Vercel Blob Storage for:
+- Hosting exam files (in `public-exams/` path)
+- Storing student submissions (in `submissions/` path)
+- Storing grading results (in `results/` path)
+
+**Setup Steps:**
 
 1. In your Vercel project dashboard, go to **Storage**
 2. Click **Create Database**
@@ -84,7 +101,16 @@ The API uses Vercel Blob Storage for storing submissions and results.
 4. Choose a name for your store (e.g., "exam-submissions")
 5. Click **Create**
 
-Vercel will automatically configure the necessary environment variables for Blob Storage.
+Vercel will automatically configure the necessary environment variables for Blob Storage (`BLOB_READ_WRITE_TOKEN`).
+
+**Get Your Blob Storage URL:**
+
+After creating Blob Storage, you'll receive a URL like:
+```
+https://[your-project-id].blob.vercel-storage.com
+```
+
+Save this URL - you'll need it for updating `setup.sh` in the next step.
 
 ### 8. Update API URL in setup.sh
 
@@ -92,7 +118,7 @@ After deployment, Vercel will give you a URL (e.g., `https://your-project.vercel
 
 You need to update the API URL in the `setup.sh` file that gets dynamically created.
 
-Edit `setup.sh` around line 111 and change:
+Edit `setup.sh` around line 162 (within the submit.sh HEREDOC) and change:
 
 ```bash
 API_URL="https://your-vercel-deployment.vercel.app/api/submit"
@@ -169,17 +195,32 @@ echo "Q1:\nQ2:" > answers.txt
 zip -r myexam101.zip *.txt *.py
 ```
 
-### 3. Add to Repository
+### 3. Upload to Vercel Blob Storage
 
+You have two options to upload exam files:
+
+**Option 1: Via Vercel Dashboard**
+1. Go to your Vercel project dashboard
+2. Navigate to **Storage** → **Blob**
+3. Create a folder path: `public-exams/`
+4. Upload `myexam101.zip` to this folder
+
+**Option 2: Via Vercel CLI**
 ```bash
-mv myexam101.zip /path/to/py-exam-cli/public/exam_files/
-cd /path/to/py-exam-cli
-git add public/exam_files/myexam101.zip
-git commit -m "Add myexam101 exam"
-git push origin main
+# Install Vercel CLI if not already installed
+npm install -g vercel
+
+# Upload the exam file
+vercel blob upload myexam101.zip --token YOUR_TOKEN
+
+# Or upload to a specific path
+# (Note: Exact CLI syntax may vary, check Vercel docs)
 ```
 
-The exam will be immediately available via the raw GitHub URL.
+The exam will be immediately available at:
+```
+https://your-blob-url.blob.vercel-storage.com/public-exams/myexam101.zip
+```
 
 ## Student Instructions
 
@@ -202,10 +243,13 @@ The exam will be immediately available via the raw GitHub URL.
       ./setup.sh
    
    4. Enter your Enrollment ID when prompted
-   5. Enter the Exam Code (e.g., cst101)
-   6. Complete the exam
-   7. Run: ./submit.sh
+   5. Enter your Full Name when prompted
+   6. Enter the Exam Code (e.g., cst101)
+   7. Complete the exam in the created directory
+   8. Run: ./submit.sh
    ```
+
+**Note**: The system now collects both Enrollment ID and Full Name, which are stored in `student_info.txt` and included in the submission for better student identification.
 
 ## Monitoring and Maintenance
 
@@ -233,10 +277,17 @@ curl "https://your-project.vercel.app/api/start-grading?secret=YOUR_SECRET"
 ```
 
 This will:
-- Process all submissions in Blob Storage
-- Compare answers with the answer key
-- Generate a CSV file with results
-- Return the URL to download the CSV
+- Download all submissions from Vercel Blob Storage
+- Read student information from `student_info.txt` in each submission
+- Parse and compare answers with the answer key
+- Calculate real scores based on correct answers
+- Generate a CSV file with results including:
+  - `enrollment_id`: Student's enrollment ID
+  - `student_name`: Student's full name
+  - `score`: Calculated score
+  - `status`: Grading status or error message
+  - `filename`: Original submission filename
+- Return the URL to download the CSV from Blob Storage
 
 ## Troubleshooting
 
@@ -248,6 +299,7 @@ This will:
 **Error**: "Failed to install dependencies"
 - **Solution**: Check that `requirements.txt` is valid
 - Try: `pip install -r requirements.txt` locally first
+- Ensure all dependencies are available: fastapi, uvicorn, python-multipart, vercel-blob, requests
 
 ### API Errors
 
@@ -262,10 +314,11 @@ This will:
 
 **Error**: "Invalid Exam Code or network issue"
 - **Solution**: 
-  1. Verify the exam zip file exists in `public/exam_files/`
-  2. Check the GitHub raw URL is correct
-  3. Make sure the repository is public
-  4. Test the URL in a browser
+  1. Verify the exam zip file exists in Vercel Blob Storage under `public-exams/`
+  2. Check the `VERCEL_BLOB_BASE_URL` in `setup.sh` is correct
+  3. Ensure the blob is accessible (public access enabled)
+  4. Test the URL in a browser: `https://your-blob-url.blob.vercel-storage.com/public-exams/examcode.zip`
+  5. Check Vercel Blob Storage logs in the dashboard
 
 ### Submissions Fail
 
@@ -374,13 +427,36 @@ If grading takes too long, increase the timeout in `vercel.json`:
 
 If you need to access the API from a web interface, add CORS middleware in `api/index.py`.
 
+## System Workflow Summary
+
+### For Students:
+1. Download and run `setup.sh`
+2. Provide Enrollment ID and Full Name
+3. Enter Exam Code
+4. System downloads exam from Vercel Blob Storage
+5. System creates `student_info.txt` with ID and name
+6. Complete exam in isolated directory
+7. Run `submit.sh` to upload (includes student_info.txt)
+
+### For Instructors:
+1. Create exam zip files
+2. Upload to Vercel Blob Storage under `public-exams/`
+3. Students take exam and submit
+4. Call `/api/start-grading` endpoint
+5. System downloads all submissions from Blob
+6. System reads student info and grades answers
+7. System generates CSV with enrollment_id, student_name, score, status
+8. Download results from returned URL
+
 ## Conclusion
 
 Your Terminal-Based Python Exam System is now deployed and ready to use! Students can download the setup script, take exams, and submit their work. You can process submissions and generate grades with a single API call.
 
 For production use, make sure to:
 - ✓ Set strong secret keys
-- ✓ Test the complete workflow
+- ✓ Update Vercel Blob URL in setup.sh
+- ✓ Upload exam files to Vercel Blob Storage (not GitHub)
+- ✓ Test the complete workflow with both enrollment ID and name collection
 - ✓ Monitor during exam periods
 - ✓ Keep backups of all data
 - ✓ Review logs regularly
