@@ -97,6 +97,42 @@ fi
 
 echo "Extraction complete!"
 
+# Set initial file permissions - make all files read-only
+echo "Setting initial file permissions..."
+chmod -w *.py *.txt 2>/dev/null || true
+
+# Dynamically create start_exam.sh script
+echo "Creating exam start script..."
+
+cat << 'START_EXAM_SCRIPT_EOF' > start_exam.sh
+#!/bin/bash
+
+# Terminal-Based Python Exam System - Start Exam Script
+# This script starts the exam timer and makes solution files editable
+
+echo "=== Starting Exam ==="
+echo ""
+
+# Make only solution files writable
+echo "Making solution files editable..."
+chmod +w problem*_solution.py answers.txt 2>/dev/null || true
+
+# Append start time (UTC) to student_info.txt
+echo "START_TIME_UTC: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> student_info.txt
+
+# Append start timestamp (Unix timestamp)
+echo "START_TIMESTAMP: $(date +%s)" >> student_info.txt
+
+echo ""
+echo "✓ Exam started successfully!"
+echo "✓ Solution files are now editable."
+echo ""
+echo "When you are finished, run: ./submit.sh"
+echo ""
+echo "Good luck!"
+echo ""
+START_EXAM_SCRIPT_EOF
+
 # Dynamically create submit.sh script
 echo "Creating submission script..."
 
@@ -124,6 +160,26 @@ if [ -z "$CONFIRMED_ID" ]; then
 fi
 
 echo ""
+
+# Record submission time before preparing
+echo "SUBMIT_TIME_UTC: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> student_info.txt
+echo "SUBMIT_TIMESTAMP: $(date +%s)" >> student_info.txt
+
+# Calculate total time
+START_TIMESTAMP=$(grep 'START_TIMESTAMP:' student_info.txt | cut -d' ' -f2)
+SUBMIT_TIMESTAMP=$(grep 'SUBMIT_TIMESTAMP:' student_info.txt | cut -d' ' -f2)
+
+if [ -n "$START_TIMESTAMP" ] && [ -n "$SUBMIT_TIMESTAMP" ]; then
+    DURATION=$((SUBMIT_TIMESTAMP - START_TIMESTAMP))
+    echo "TOTAL_TIME_SECONDS: $DURATION" >> student_info.txt
+else
+    echo "TOTAL_TIME_SECONDS: ERROR_CALCULATING" >> student_info.txt
+fi
+
+# Lock solution files
+echo "Locking files..."
+chmod -w problem*_solution.py answers.txt 2>/dev/null || true
+
 echo "Preparing submission for Enrollment ID: $CONFIRMED_ID"
 echo ""
 
@@ -207,16 +263,19 @@ else
 fi
 SUBMIT_SCRIPT_EOF
 
-# Make submit.sh executable
-chmod +x submit.sh
+# Make scripts executable
+chmod +x submit.sh start_exam.sh
 
 echo ""
 echo "=========================================="
 echo "✓ Setup Complete!"
 echo "=========================================="
 echo ""
-echo "You may now begin the exam."
+echo "All files are currently read-only for integrity."
 echo "Your exam files are in: $EXAM_DIR"
+echo ""
+echo "When you are ready to begin, run:"
+echo "  ./start_exam.sh"
 echo ""
 echo "When you are finished, run:"
 echo "  ./submit.sh"

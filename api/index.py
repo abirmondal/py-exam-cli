@@ -189,6 +189,9 @@ async def start_grading(secret: Optional[str] = Query(None)):
         for blob in blobs.get('blobs', []):
             enrollment_id = "UNKNOWN"
             student_name = "Unknown"
+            start_time_utc = "N/A"
+            submit_time_utc = "N/A"
+            total_time_seconds = "N/A"
             
             try:
                 # Extract filename
@@ -216,6 +219,12 @@ async def start_grading(secret: Optional[str] = Query(None)):
                                     enrollment_id = line.split(':', 1)[1].strip()
                                 elif line.startswith('STUDENT_NAME:'):
                                     student_name = line.split(':', 1)[1].strip()
+                                elif line.startswith('START_TIME_UTC:'):
+                                    start_time_utc = line.split(':', 1)[1].strip()
+                                elif line.startswith('SUBMIT_TIME_UTC:'):
+                                    submit_time_utc = line.split(':', 1)[1].strip()
+                                elif line.startswith('TOTAL_TIME_SECONDS:'):
+                                    total_time_seconds = line.split(':', 1)[1].strip()
                     except KeyError:
                         # student_info.txt not found, fallback to filename
                         if filename.endswith('_submission.zip'):
@@ -262,7 +271,10 @@ async def start_grading(secret: Optional[str] = Query(None)):
                     "student_name": student_name,
                     "score": score,
                     "status": "Graded",
-                    "filename": filename
+                    "filename": filename,
+                    "start_time_utc": start_time_utc,
+                    "submit_time_utc": submit_time_utc,
+                    "total_time_seconds": total_time_seconds
                 })
                 
             except Exception as e:
@@ -273,13 +285,17 @@ async def start_grading(secret: Optional[str] = Query(None)):
                     "student_name": student_name,
                     "score": 0,
                     "status": f"Error: {str(e)[:50]}",
-                    "filename": blob.get('pathname', 'unknown')
+                    "filename": blob.get('pathname', 'unknown'),
+                    "start_time_utc": start_time_utc,
+                    "submit_time_utc": submit_time_utc,
+                    "total_time_seconds": total_time_seconds
                 })
         
         # Convert results to CSV
         csv_buffer = io.StringIO()
         if results:
-            fieldnames = ["enrollment_id", "student_name", "score", "status", "filename"]
+            fieldnames = ["enrollment_id", "student_name", "score", "status", "filename", 
+                         "start_time_utc", "submit_time_utc", "total_time_seconds"]
             writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(results)
