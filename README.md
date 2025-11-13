@@ -44,6 +44,7 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
 
 3. **Follow the prompts**:
    - Enter your Enrollment ID (e.g., `STU12345`)
+   - Enter your Full Name (e.g., `John Smith`)
    - Enter the Exam Code (e.g., `cst101`)
 
 4. **Complete your exam**:
@@ -90,7 +91,7 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    - Add environment variable: `GRADING_SECRET` (choose a strong secret key)
 
 6. **Update the setup.sh script**:
-   - Replace the GitHub URL with your repository URL
+   - Update `VERCEL_BLOB_BASE_URL` with your Vercel Blob Storage URL
    - Update the API URL in the script with your Vercel deployment URL
 
 ### Creating Exam Files
@@ -115,17 +116,11 @@ A complete Python & Shell-based CLI system for conducting exams. Manages setup, 
    zip -r cst101.zip *.txt *.py
    ```
 
-3. **Move to exam_files directory**:
-   ```bash
-   mv cst101.zip /path/to/repo/public/exam_files/
-   ```
-
-4. **Commit and push**:
-   ```bash
-   git add public/exam_files/cst101.zip
-   git commit -m "Add CST101 exam"
-   git push
-   ```
+3. **Upload to Vercel Blob Storage**:
+   - Go to your Vercel project dashboard
+   - Navigate to **Storage** → **Blob**
+   - Upload `cst101.zip` to the `public-exams/` folder
+   - Or use Vercel CLI: `vercel blob upload cst101.zip --store public-exams`
 
 ### Starting the Grading Process
 

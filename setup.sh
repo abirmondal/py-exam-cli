@@ -16,6 +16,14 @@ if [ -z "$ENROLLMENT_ID" ]; then
     exit 1
 fi
 
+# Prompt for Student Name
+read -p "Enter your Full Name: " STUDENT_NAME
+
+if [ -z "$STUDENT_NAME" ]; then
+    echo "Error: Student Name cannot be empty."
+    exit 1
+fi
+
 # Prompt for Exam Code
 read -p "Enter the Exam Code (e.g., cst101): " EXAM_CODE
 
@@ -25,8 +33,10 @@ if [ -z "$EXAM_CODE" ]; then
 fi
 
 echo ""
-echo "Setting up exam for Enrollment ID: $ENROLLMENT_ID"
-echo "Exam Code: $EXAM_CODE"
+echo "Setting up exam for:"
+echo "  Name: $STUDENT_NAME"
+echo "  Enrollment ID: $ENROLLMENT_ID"
+echo "  Exam Code: $EXAM_CODE"
 echo ""
 
 # Create isolated exam directory
@@ -41,19 +51,27 @@ fi
 mkdir -p "$EXAM_DIR"
 cd "$EXAM_DIR"
 
-# Construct download URL for the exam zip file
-# TODO: Update YOUR_USER and YOUR_REPO with your actual GitHub username and repository name
-GITHUB_RAW_URL="https://raw.githubusercontent.com/abirmondal/py-exam-cli/main/public/exam_files/${EXAM_CODE}.zip"
+# Create student_info.txt file
+echo "Creating student information file..."
+cat > student_info.txt << EOF
+ENROLLMENT_ID: $ENROLLMENT_ID
+STUDENT_NAME: $STUDENT_NAME
+EOF
+
+# Construct download URL for the exam zip file from Vercel Blob
+# TODO: Update this URL with your Vercel Blob project's public URL
+VERCEL_BLOB_BASE_URL="https://[YOUR-VERCEL-PROJECT-ID].blob.vercel-storage.com"
+DOWNLOAD_URL="${VERCEL_BLOB_BASE_URL}/public-exams/${EXAM_CODE}.zip"
 
 echo "Downloading exam files..."
-echo "URL: $GITHUB_RAW_URL"
+echo "URL: $DOWNLOAD_URL"
 
 # Try to download the exam zip file using curl
 if command -v curl &> /dev/null; then
-    curl -L -o "${EXAM_CODE}.zip" "$GITHUB_RAW_URL" -f -s -S
+    curl -L -o "${EXAM_CODE}.zip" "$DOWNLOAD_URL" -f -s -S
     DOWNLOAD_STATUS=$?
 elif command -v wget &> /dev/null; then
-    wget -q -O "${EXAM_CODE}.zip" "$GITHUB_RAW_URL"
+    wget -q -O "${EXAM_CODE}.zip" "$DOWNLOAD_URL"
     DOWNLOAD_STATUS=$?
 else
     echo "Error: Neither curl nor wget is available. Please install one of them."
@@ -127,6 +145,11 @@ TEMP_FILE_LIST=$(mktemp)
 # Look for solution files (customize these patterns as needed)
 find . -maxdepth 1 \( -name "*solution*.py" -o -name "*solution*.txt" -o -name "answers.txt" -o -name "answer.txt" \) -type f > "$TEMP_FILE_LIST" 2>/dev/null || true
 
+# Always include student_info.txt if it exists
+if [ -f "student_info.txt" ]; then
+    echo "student_info.txt" >> "$TEMP_FILE_LIST"
+fi
+
 # Check if any files were found
 if [ ! -s "$TEMP_FILE_LIST" ]; then
     echo "Warning: No solution files found."
@@ -143,7 +166,7 @@ if [ ! -s "$TEMP_FILE_LIST" ]; then
     zip -q "$SUBMISSION_FILE" placeholder.txt
     rm placeholder.txt
 else
-    # Create zip with only the solution files
+    # Create zip with solution files and student info
     while IFS= read -r file; do
         echo "  Adding: $file"
     done < "$TEMP_FILE_LIST"

@@ -9,6 +9,7 @@ import os
 import io
 import zipfile
 import csv
+import requests
 from typing import Optional
 from vercel_blob import put, list as blob_list, head
 
@@ -186,43 +187,79 @@ async def start_grading(secret: Optional[str] = Query(None)):
         
         # Process each submission
         for blob in blobs.get('blobs', []):
-            student_id = "UNKNOWN"
+            enrollment_id = "UNKNOWN"
+            student_name = "Unknown"
             
             try:
-                # Extract student ID from filename
+                # Extract filename
                 filename = blob.get('pathname', '').split('/')[-1]
-                if filename.endswith('_submission.zip'):
-                    student_id = filename.replace('_submission.zip', '')
-                else:
-                    student_id = filename.replace('.zip', '')
                 
                 # Download the blob content
                 blob_url = blob.get('url')
                 if not blob_url:
                     raise Exception("Blob URL not found")
                 
-                # For Vercel Blob, we need to fetch the content
-                # Since we don't have requests library, we'll use the blob data directly
-                # In a real scenario, you'd fetch from the URL
-                # For now, we'll skip the actual download and just mark it
+                # Download blob content from URL
+                response = requests.get(blob_url, timeout=30)
+                response.raise_for_status()
+                blob_data = response.content
                 
-                # Simulate grading logic
-                # In production, you would:
-                # 1. Download blob content from URL
-                # 2. Open as ZipFile
-                # 3. Read answers.txt
-                # 4. Parse and compare with ANSWERS
-                # 5. Calculate score
-                
-                # Placeholder scoring (would be replaced with actual logic)
-                score = 0
-                
-                # Try to read the zip file
-                # Since we can't easily fetch in serverless without requests,
-                # we'll create a mock result
+                # Open as ZipFile
+                with zipfile.ZipFile(io.BytesIO(blob_data)) as zf:
+                    # Try to read student_info.txt
+                    try:
+                        with zf.open('student_info.txt') as info_file:
+                            info_content = info_file.read().decode('utf-8')
+                            # Parse the file
+                            for line in info_content.strip().split('\n'):
+                                if line.startswith('ENROLLMENT_ID:'):
+                                    enrollment_id = line.split(':', 1)[1].strip()
+                                elif line.startswith('STUDENT_NAME:'):
+                                    student_name = line.split(':', 1)[1].strip()
+                    except KeyError:
+                        # student_info.txt not found, fallback to filename
+                        if filename.endswith('_submission.zip'):
+                            enrollment_id = filename.replace('_submission.zip', '')
+                        else:
+                            enrollment_id = filename.replace('.zip', '')
+                        student_name = "Unknown"
+                    
+                    # Read and grade answers.txt
+                    score = 0
+                    total_questions = len(ANSWERS)
+                    
+                    try:
+                        with zf.open('answers.txt') as answer_file:
+                            answer_content = answer_file.read().decode('utf-8')
+                            
+                            # Parse answers
+                            student_answers = {}
+                            for line in answer_content.strip().split('\n'):
+                                line = line.strip()
+                                # Skip comments and empty lines
+                                if not line or line.startswith('#'):
+                                    continue
+                                # Parse format: Q1: A or Q2: A,C
+                                if ':' in line:
+                                    parts = line.split(':', 1)
+                                    question = parts[0].strip()
+                                    answer = parts[1].strip()
+                                    if answer:  # Only add if answer is not empty
+                                        student_answers[question] = answer
+                            
+                            # Calculate score by comparing with ANSWERS
+                            for question, correct_answer in ANSWERS.items():
+                                if question in student_answers:
+                                    if student_answers[question] == correct_answer:
+                                        score += 1
+                            
+                    except KeyError:
+                        # answers.txt not found
+                        raise Exception("answers.txt not found in submission")
                 
                 results.append({
-                    "student_id": student_id,
+                    "enrollment_id": enrollment_id,
+                    "student_name": student_name,
                     "score": score,
                     "status": "Graded",
                     "filename": filename
@@ -232,7 +269,8 @@ async def start_grading(secret: Optional[str] = Query(None)):
                 # Handle errors for individual submissions
                 error_count += 1
                 results.append({
-                    "student_id": student_id,
+                    "enrollment_id": enrollment_id,
+                    "student_name": student_name,
                     "score": 0,
                     "status": f"Error: {str(e)[:50]}",
                     "filename": blob.get('pathname', 'unknown')
@@ -241,7 +279,7 @@ async def start_grading(secret: Optional[str] = Query(None)):
         # Convert results to CSV
         csv_buffer = io.StringIO()
         if results:
-            fieldnames = ["student_id", "score", "status", "filename"]
+            fieldnames = ["enrollment_id", "student_name", "score", "status", "filename"]
             writer = csv.DictWriter(csv_buffer, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(results)

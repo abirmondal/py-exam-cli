@@ -41,12 +41,14 @@ vercel --prod
 Edit `setup.sh`:
 
 ```bash
-# Line 39 - Update your GitHub username
-GITHUB_RAW_URL="https://raw.githubusercontent.com/YOUR_USERNAME/py-exam-cli/main/public/exam_files/${EXAM_CODE}.zip"
+# Update the Vercel Blob URL (around line 48)
+VERCEL_BLOB_BASE_URL="https://your-vercel-blob-url.blob.vercel-storage.com"
 
-# Line 111 - Update with your Vercel URL
+# Update the API URL (around line 162 in the submit.sh section)
 API_URL="https://your-project.vercel.app/api/submit"
 ```
+
+You can find your Vercel Blob URL in your project's Storage settings.
 
 Commit and push:
 ```bash
@@ -85,6 +87,7 @@ chmod +x setup.sh
 
 Enter:
 - Your Enrollment ID (e.g., `STU12345`)
+- Your Full Name (e.g., `John Smith`)
 - Exam Code (e.g., `cst101`)
 
 ### 3. Complete the Exam
@@ -141,14 +144,13 @@ EOF
 # 5. Create the zip
 zip -r myexam101.zip *.txt *.py
 
-# 6. Move to repo
-mv myexam101.zip /path/to/py-exam-cli/public/exam_files/
+# 6. Upload to Vercel Blob Storage
+# Option 1: Via Vercel Dashboard
+# - Go to your project → Storage → Blob
+# - Upload myexam101.zip to public-exams/ folder
 
-# 7. Commit
-cd /path/to/py-exam-cli
-git add public/exam_files/myexam101.zip
-git commit -m "Add myexam101"
-git push
+# Option 2: Via Vercel CLI
+vercel blob upload myexam101.zip --store public-exams
 ```
 
 **Done!** Your exam is available! Students can now use exam code `myexam101`.
