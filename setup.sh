@@ -63,7 +63,7 @@ EOF
 
 # Construct download URL for the exam zip file from Vercel Blob
 # TODO: Update this URL with your Vercel Blob project's public URL
-VERCEL_BLOB_BASE_URL="https://kbnyowyqydxghkjz.public.blob.vercel-storage.com"
+VERCEL_BLOB_BASE_URL="https://[YOUR-VERCEL-PROJECT-ID].blob.vercel-storage.com"
 DOWNLOAD_URL="${VERCEL_BLOB_BASE_URL}/public-exams/${EXAM_CODE}.zip"
 
 echo "Downloading exam files..."
@@ -257,7 +257,7 @@ echo "Uploading submission..."
 echo ""
 
 # TODO: Update with your actual Vercel deployment URL
-API_URL="https://ee-1st-year-python-exam.vercel.app/api/submit"
+API_URL="https://your-vercel-deployment.vercel.app/api/submit"
 
 # Upload using curl
 if command -v curl &> /dev/null; then
