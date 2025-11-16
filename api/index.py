@@ -9,9 +9,8 @@ from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 import io
 import os
 import zipfile
-import requests
 from vercel_blob import put
-from vercel_blob import list as blob_list
+from vercel_blob import list as blob_list, get as blob_get
 
 app = FastAPI(title="Python Exam System API")
 
@@ -247,7 +246,7 @@ async def download_batch(exam_code: str, secret: str):
     
     try:
         # List all blobs matching the prefix
-        result = blob_list(prefix=file_prefix)
+        result = blob_list(options={'prefix': file_prefix})
         blobs = result.get('blobs', [])
         
         # Check if any submissions exist
@@ -264,10 +263,7 @@ async def download_batch(exam_code: str, secret: str):
             for blob in blobs:
                 try:
                     # Download the student's zip file
-                    blob_url = blob.get('url')
-                    response = requests.get(blob_url)
-                    response.raise_for_status()
-                    student_zip_content = response.content
+                    student_zip_content = blob_get(blob['url']).read()
                     
                     # Extract student_id from the pathname
                     # Format: submissions/{exam_code}_{student_id}.zip
@@ -347,32 +343,14 @@ async def download_single(exam_code: str, student_id: str, secret: str):
     blob_path = f"submissions/{exam_code}_{student_id}.zip"
     
     try:
-        # First, try to find the blob using list
-        result = blob_list(prefix=blob_path)
-        blobs = result.get('blobs', [])
-        
-        # Find exact match
-        blob_url = None
-        for blob in blobs:
-            if blob.get('pathname') == blob_path:
-                blob_url = blob.get('url')
-                break
-        
-        if not blob_url:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Submission not found for exam code: {exam_code}, student ID: {student_id}"
-            )
-        
-        # Download the file
-        response = requests.get(blob_url)
-        response.raise_for_status()
-        file_data = response.content
-        
+        # Download the file directly using blob_get
+        # blob_get() will raise an exception if the file doesn't exist (404)
+        file_data = blob_get(blob_path).read()
+
         # Create a streaming response
         file_stream = io.BytesIO(file_data)
         filename = f"{exam_code}_{student_id}.zip"
-        
+
         return StreamingResponse(
             file_stream,
             media_type="application/zip",
@@ -380,11 +358,18 @@ async def download_single(exam_code: str, student_id: str, secret: str):
                 "Content-Disposition": f"attachment; filename={filename}"
             }
         )
-    
+
     except HTTPException:
-        raise
+        raise  # Re-raise FastAPI's own errors
     except Exception as e:
         error_message = str(e)
+        # Check if the error is a "not_found" error from Vercel Blob
+        if "not_found" in error_message.lower():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Submission not found for exam code: {exam_code}, student ID: {student_id}"
+            )
+        # Otherwise, return a generic 500
         raise HTTPException(
             status_code=500,
             detail=f"Failed to download submission: {error_message}"
