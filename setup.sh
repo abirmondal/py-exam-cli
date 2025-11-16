@@ -162,16 +162,32 @@ fi
 echo "=== Python Exam System - Submission ==="
 echo ""
 
-# Get the enrollment ID from the parent directory name
-CURRENT_DIR=$(basename "$(pwd)")
-EXTRACTED_ID="${CURRENT_DIR#exam_}"
+# Get the ORIGINAL Enrollment ID from student_info.txt
+if [ ! -f "student_info.txt" ]; then
+    echo "Error: student_info.txt not found. Cannot submit."
+    exit 1
+fi
+ORIGINAL_ID=$(grep 'ENROLLMENT_ID:' student_info.txt | cut -d' ' -f2)
 
 # Prompt for confirmation
-read -p "Please confirm your Enrollment ID [$EXTRACTED_ID]: " CONFIRMED_ID
+read -p "Please confirm your Enrollment ID [$ORIGINAL_ID]: " CONFIRMED_ID
 
-# Use extracted ID if user just presses Enter
+# Use original ID if user just presses Enter
 if [ -z "$CONFIRMED_ID" ]; then
-    CONFIRMED_ID="$EXTRACTED_ID"
+    CONFIRMED_ID="$ORIGINAL_ID"
+fi
+
+# Validate Enrollment ID
+if [ "$CONFIRMED_ID" != "$ORIGINAL_ID" ]; then
+    echo "==================================================================="
+    echo "✗ ERROR: ID MISMATCH!"
+    echo "==================================================================="
+    echo "  You entered:    $CONFIRMED_ID"
+    echo "  This exam belongs to: $ORIGINAL_ID"
+    echo ""
+    echo "  Submission ABORTED. Please run ./submit.sh again."
+    echo "==================================================================="
+    exit 1
 fi
 
 echo ""
