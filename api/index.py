@@ -9,9 +9,9 @@ from fastapi.responses import JSONResponse, HTMLResponse, StreamingResponse
 import io
 import os
 import zipfile
+import requests
 from vercel_blob import put
 from vercel_blob import list as blob_list
-from vercel_blob import get as blob_get
 
 app = FastAPI(title="Python Exam System API")
 
@@ -265,7 +265,9 @@ async def download_batch(exam_code: str, secret: str):
                 try:
                     # Download the student's zip file
                     blob_url = blob.get('url')
-                    student_zip_content = blob_get(blob_url).read()
+                    response = requests.get(blob_url)
+                    response.raise_for_status()
+                    student_zip_content = response.content
                     
                     # Extract student_id from the pathname
                     # Format: submissions/{exam_code}_{student_id}.zip
@@ -345,8 +347,27 @@ async def download_single(exam_code: str, student_id: str, secret: str):
     blob_path = f"submissions/{exam_code}_{student_id}.zip"
     
     try:
+        # First, try to find the blob using list
+        result = blob_list(prefix=blob_path)
+        blobs = result.get('blobs', [])
+        
+        # Find exact match
+        blob_url = None
+        for blob in blobs:
+            if blob.get('pathname') == blob_path:
+                blob_url = blob.get('url')
+                break
+        
+        if not blob_url:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Submission not found for exam code: {exam_code}, student ID: {student_id}"
+            )
+        
         # Download the file
-        file_data = blob_get(blob_path).read()
+        response = requests.get(blob_url)
+        response.raise_for_status()
+        file_data = response.content
         
         # Create a streaming response
         file_stream = io.BytesIO(file_data)
@@ -360,16 +381,11 @@ async def download_single(exam_code: str, student_id: str, secret: str):
             }
         )
     
+    except HTTPException:
+        raise
     except Exception as e:
         error_message = str(e)
-        # Check if it's a not_found error
-        if "not_found" in error_message.lower() or "404" in error_message:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Submission not found for exam code: {exam_code}, student ID: {student_id}"
-            )
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to download submission: {error_message}"
-            )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to download submission: {error_message}"
+        )
